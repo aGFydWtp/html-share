@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>html-share アップロード</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: #f5f6f8; color: #1a1a1a; padding: 24px;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #15171a; color: #e8e8e8; }
+  }
+  .card {
+    width: 100%; max-width: 520px; background: #fff; border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.06); padding: 32px;
+  }
+  @media (prefers-color-scheme: dark) { .card { background: #1f2227; box-shadow: none; border: 1px solid #2c3138; } }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #6b7280; margin: 0 0 24px; }
+  #drop {
+    border: 2px dashed #c4c9d2; border-radius: 12px; padding: 40px 20px; text-align: center;
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop.over { border-color: #3b82f6; background: rgba(59,130,246,.06); }
+  #drop .icon { font-size: 36px; line-height: 1; }
+  #drop .hint { font-size: 14px; margin-top: 12px; }
+  #drop .note { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+  #file { display: none; }
+  .bar { height: 6px; border-radius: 3px; background: #e5e7eb; overflow: hidden; margin-top: 20px; display: none; }
+  .bar > span { display: block; height: 100%; width: 0; background: #3b82f6; transition: width .15s; }
+  .result, .error { margin-top: 20px; display: none; }
+  .result { padding: 16px; border-radius: 10px; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); }
+  .result a { word-break: break-all; color: #2563eb; font-weight: 600; text-decoration: none; }
+  .result .row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+  .error { padding: 14px 16px; border-radius: 10px; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); font-size: 14px; color: #dc2626; }
+  button {
+    font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #d1d5db;
+    background: #fff; cursor: pointer; white-space: nowrap;
+  }
+  button:hover { background: #f3f4f6; }
+  @media (prefers-color-scheme: dark) { button { background: #2a2f37; border-color: #3a414a; color: #e8e8e8; } button:hover { background: #333a43; } }
+  .filename { font-size: 13px; color: #6b7280; margin-top: 14px; min-height: 18px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>HTML を共有</h1>
+    <p class="sub">単一の HTML ファイルをアップロードすると、社内限定の共有 URL が発行されます。</p>
+
+    <div id="drop" tabindex="0" role="button" aria-label="ファイルを選択またはドロップ">
+      <div class="icon">📄</div>
+      <div class="hint"><strong>クリック</strong>して選択、または<strong>ドラッグ＆ドロップ</strong></div>
+      <div class="note">.html / .htm のみ・25MB まで</div>
+    </div>
+    <input type="file" id="file" accept=".html,.htm">
+    <div class="filename" id="filename"></div>
+
+    <div class="bar" id="bar"><span id="barfill"></span></div>
+
+    <div class="result" id="result">
+      <div>✅ アップロード完了</div>
+      <div class="row">
+        <a id="url" href="#" target="_blank" rel="noopener"></a>
+      </div>
+      <div class="row">
+        <button id="copy">URL をコピー</button>
+        <button id="again">続けてアップロード</button>
+      </div>
+      <div class="note" style="margin-top:10px">反映まで数秒かかる場合があります。404 のときは少し待って再読み込みしてください。</div>
+    </div>
+
+    <div class="error" id="error"></div>
+  </div>
+
+<script>
+(function () {
+  const drop = document.getElementById('drop');
+  const input = document.getElementById('file');
+  const filename = document.getElementById('filename');
+  const bar = document.getElementById('bar');
+  const barfill = document.getElementById('barfill');
+  const result = document.getElementById('result');
+  const urlEl = document.getElementById('url');
+  const errEl = document.getElementById('error');
+  const copyBtn = document.getElementById('copy');
+  const againBtn = document.getElementById('again');
+
+  function reset() {
+    result.style.display = 'none';
+    errEl.style.display = 'none';
+    bar.style.display = 'none';
+    barfill.style.width = '0';
+  }
+  function showError(msg) {
+    reset();
+    errEl.textContent = '⚠️ ' + msg;
+    errEl.style.display = 'block';
+  }
+
+  drop.addEventListener('click', () => input.click());
+  drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+
+  ['dragenter', 'dragover'].forEach(ev =>
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev =>
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+
+  drop.addEventListener('drop', (e) => {
+    const f = e.dataTransfer.files[0];
+    if (f) upload(f);
+  });
+  input.addEventListener('change', () => {
+    if (input.files[0]) upload(input.files[0]);
+  });
+
+  function upload(file) {
+    reset();
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith('.html') && !lower.endsWith('.htm')) {
+      return showError('.html / .htm のみアップロードできます');
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      return showError('ファイルが大きすぎます（上限 25MB）');
+    }
+    filename.textContent = file.name + '（' + Math.ceil(file.size / 1024) + ' KB）';
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', 'upload');
+    bar.style.display = 'block';
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) barfill.style.width = (e.loaded / e.total * 100) + '%';
+    });
+    xhr.addEventListener('load', () => {
+      bar.style.display = 'none';
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status === 200 && data.url) {
+        urlEl.textContent = data.url;
+        urlEl.href = data.url;
+        result.style.display = 'block';
+      } else {
+        showError(data.error || ('アップロードに失敗しました（HTTP ' + xhr.status + '）'));
+      }
+    });
+    xhr.addEventListener('error', () => showError('通信エラーが発生しました'));
+    xhr.send(fd);
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(urlEl.textContent);
+      copyBtn.textContent = 'コピーしました ✓';
+      setTimeout(() => (copyBtn.textContent = 'URL をコピー'), 1500);
+    } catch (_) {
+      showError('クリップボードへのコピーに失敗しました。URL を手動で選択してください。');
+    }
+  });
+  againBtn.addEventListener('click', () => {
+    reset();
+    input.value = '';
+    filename.textContent = '';
+  });
+})();
+</script>
+</body>
+</html>
