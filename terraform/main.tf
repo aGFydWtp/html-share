@@ -75,8 +75,7 @@ resource "google_storage_bucket_iam_member" "runtime_object_viewer" {
   member = "serviceAccount:${google_service_account.runtime.email}"
 }
 
-# Web アップローダ(sidecar)用。新規オブジェクト作成のみ可（上書き/削除は不可・W5/W9）。
-# objectViewer と objectCreator の合算で「作成は誰でも / 削除は管理者 CLI のみ」の権限非対称を担保。
+# Web アップローダ(sidecar)用。新規オブジェクト作成のみ可（上書きは不可・W5/W9）。
 resource "google_storage_bucket_iam_member" "runtime_object_creator" {
   bucket = google_storage_bucket.content.name
   role   = "roles/storage.objectCreator"
@@ -99,6 +98,24 @@ resource "google_artifact_registry_repository_iam_member" "cloudrun_agent_reader
   repository = google_artifact_registry_repository.nginx.repository_id
   role       = "roles/artifactregistry.reader"
   member     = "serviceAccount:service-${data.google_project.project.number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
+# /mypage の本人削除のために delete 権限のみを追加する custom role。
+# 事前定義ロール（objectUser/objectAdmin）は get/list/create も内包し付与過剰になるため、
+# storage.objects.delete だけに絞る。「自分のものだけ削除」はアプリ側で
+# metadata.uploader と IAP メールを照合して担保する（main.go handleDelete）。
+resource "google_project_iam_custom_role" "object_deleter" {
+  project     = var.project_id
+  role_id     = "shareObjectDeleter"
+  title       = "html-share Object Deleter"
+  description = "コンテンツバケットのオブジェクト削除のみ（/mypage 本人削除用）"
+  permissions = ["storage.objects.delete"]
+}
+
+resource "google_storage_bucket_iam_member" "runtime_object_deleter" {
+  bucket = google_storage_bucket.content.name
+  role   = google_project_iam_custom_role.object_deleter.id
+  member = "serviceAccount:${google_service_account.runtime.email}"
 }
 
 # ---------- Cloud Run サービス（nginx + GCS volume mount）----------

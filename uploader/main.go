@@ -17,16 +17,26 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/iterator"
 )
+
+// id は 8 桁 hex（newID と一致）。/mypage/delete のパラメータ検証に使う。
+var idRe = regexp.MustCompile(`^[0-9a-f]{8}$`)
+
+// 表示は JST 固定（Cloud Run は UTC 稼働のため）。
+var jst = time.FixedZone("JST", 9*3600)
 
 const (
 	maxUploadBytes = 25 << 20 // 25MB（W6）
@@ -59,6 +69,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/upload", s.handleUpload)
+	mux.HandleFunc("/mypage", s.handleMyPage)        // 自分の共有一覧
+	mux.HandleFunc("/mypage/delete", s.handleDelete) // 自分の共有削除（POST）
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -207,3 +219,178 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
+
+// pageItem は /mypage 一覧の 1 ページ分（<id>/index.html 単位）。
+type pageItem struct {
+	ID         string
+	URL        string
+	OrigName   string
+	UploadedAt string
+}
+
+// handleMyPage は IAP 認証ユーザー本人がアップロードしたページを一覧表示する。
+// バケットを走査し metadata.uploader が本人メールと一致する <id>/index.html だけを拾う。
+func (s *server) handleMyPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "許可されないメソッドです")
+		return
+	}
+	email := uploaderEmail(r)
+	if email == "" {
+		writeError(w, http.StatusForbidden, "認証情報を取得できません")
+		return
+	}
+
+	ctx := r.Context()
+	it := s.gcs.Bucket(s.bucket).Objects(ctx, nil)
+	var items []pageItem
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			log.Printf("mypage list 失敗: %v", err)
+			writeError(w, http.StatusInternalServerError, "一覧の取得に失敗しました")
+			return
+		}
+		if !strings.HasSuffix(attrs.Name, "/index.html") {
+			continue // ページの入口（index.html）だけを対象に
+		}
+		if attrs.Metadata["uploader"] != email {
+			continue // 本人のもの以外は除外（IAP メール＝詐称不可）
+		}
+		id := strings.TrimSuffix(attrs.Name, "/index.html")
+		items = append(items, pageItem{
+			ID:         id,
+			URL:        "/" + id + "/",
+			OrigName:   attrs.Metadata["orig_filename"],
+			UploadedAt: formatUploadedAt(attrs.Metadata["uploaded_at"], attrs.Created),
+		})
+	}
+	// 新しい順（整形済み "YYYY-MM-DD HH:MM" は辞書順＝時系列）
+	sort.Slice(items, func(i, j int) bool { return items[i].UploadedAt > items[j].UploadedAt })
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	data := struct {
+		Email string
+		Items []pageItem
+	}{Email: email, Items: items}
+	if err := mypageTmpl.Execute(w, data); err != nil {
+		log.Printf("mypage render 失敗: %v", err)
+	}
+}
+
+// handleDelete は本人がアップロードしたページのみ削除する（POST）。
+// 削除前に対象オブジェクトの metadata.uploader と IAP メールを厳密照合し、
+// 一致しなければ 403。SA は delete 権限を持つため、ここが唯一の本人性チェックになる。
+func (s *server) handleDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "許可されないメソッドです")
+		return
+	}
+	email := uploaderEmail(r)
+	if email == "" {
+		writeError(w, http.StatusForbidden, "認証情報を取得できません")
+		return
+	}
+	id := r.FormValue("id")
+	if !idRe.MatchString(id) {
+		writeError(w, http.StatusBadRequest, "不正な ID です")
+		return
+	}
+
+	ctx := r.Context()
+	obj := s.gcs.Bucket(s.bucket).Object(id + "/index.html")
+	attrs, err := obj.Attrs(ctx)
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		writeError(w, http.StatusNotFound, "対象が見つかりません")
+		return
+	}
+	if err != nil {
+		log.Printf("delete attrs 取得失敗 (id=%s): %v", id, err)
+		writeError(w, http.StatusInternalServerError, "削除に失敗しました")
+		return
+	}
+	// 本人性チェック（email は空を上で弾き済み。他人/メタ無しは不一致で必ず弾かれる）
+	if attrs.Metadata["uploader"] != email {
+		writeError(w, http.StatusForbidden, "自分がアップロードしたページのみ削除できます")
+		return
+	}
+	if err := obj.Delete(ctx); err != nil {
+		log.Printf("delete 失敗 (id=%s): %v", id, err)
+		writeError(w, http.StatusInternalServerError, "削除に失敗しました")
+		return
+	}
+	log.Printf("deleted id=%s by %s", id, email)
+	http.Redirect(w, r, "/mypage", http.StatusSeeOther)
+}
+
+// formatUploadedAt は metadata.uploaded_at(RFC3339) を JST の "YYYY-MM-DD HH:MM" に整形する。
+// パースできなければオブジェクト作成時刻、それも無ければ生文字列を返す。
+func formatUploadedAt(raw string, fallback time.Time) string {
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t.In(jst).Format("2006-01-02 15:04")
+	}
+	if !fallback.IsZero() {
+		return fallback.In(jst).Format("2006-01-02 15:04")
+	}
+	return raw
+}
+
+var mypageTmpl = template.Must(template.New("mypage").Parse(mypageHTML))
+
+const mypageHTML = `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイページ — html-share</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif; margin:0; min-height:100vh;
+         background:#0f1115; color:#e6e8eb; padding:2.5rem 1rem; }
+  .wrap { max-width:760px; margin:0 auto; }
+  h1 { font-size:1.5rem; margin:0 0 .3rem;
+       background:linear-gradient(135deg,#6ea8fe,#a78bfa); -webkit-background-clip:text;
+       background-clip:text; color:transparent; display:inline-block; }
+  .sub { color:#9aa0a6; font-size:.9rem; margin:0 0 1.6rem; }
+  .sub a { color:#6ea8fe; text-decoration:none; }
+  .item { display:flex; align-items:center; gap:1rem; background:#171a21; border:1px solid #242833;
+          border-radius:.6rem; padding:.9rem 1.1rem; margin-bottom:.7rem; }
+  .meta { flex:1; min-width:0; }
+  .meta a { color:#e6e8eb; font-weight:600; text-decoration:none; word-break:break-all; }
+  .meta a:hover { color:#6ea8fe; }
+  .meta .when { display:block; color:#9aa0a6; font-size:.8rem; margin-top:.2rem; }
+  .del { background:#2a1417; color:#ff8a8a; border:1px solid #5a2730; border-radius:.45rem;
+         padding:.45rem .9rem; font-size:.85rem; cursor:pointer; white-space:nowrap; }
+  .del:hover { background:#3a1a1e; }
+  .empty { color:#9aa0a6; background:#171a21; border:1px solid #242833; border-radius:.6rem;
+           padding:2rem; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>マイページ</h1>
+    <p class="sub">{{.Email}} がアップロードした共有ページ · <a href="/upload">新規アップロード →</a></p>
+    {{if .Items}}
+      {{range .Items}}
+      <div class="item">
+        <div class="meta">
+          <a href="{{.URL}}" target="_blank" rel="noopener">{{if .OrigName}}{{.OrigName}}{{else}}{{.ID}}{{end}}</a>
+          <span class="when">{{.URL}} · {{.UploadedAt}}</span>
+        </div>
+        <form method="post" action="/mypage/delete" onsubmit="return confirm('このページを削除します。元に戻せません。よろしいですか？')">
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="del" type="submit">削除</button>
+        </form>
+      </div>
+      {{end}}
+    {{else}}
+      <div class="empty">まだ共有ページがありません。<a href="/upload" style="color:#6ea8fe">アップロード</a>してみましょう。</div>
+    {{end}}
+  </div>
+</body>
+</html>
+`

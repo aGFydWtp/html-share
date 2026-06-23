@@ -29,7 +29,9 @@
 
 ## 日常の使い方
 
-トップ `https://<SERVICE_URL>/` は**社内向けの紹介ページ**（使い方の入口・[docker/landing/index.html](docker/landing/index.html) をイメージに焼き込み）。アップロードは `/upload`、共有ページは `/<id>/`。いずれも IAP 配下で社内限定。
+トップ `https://<SERVICE_URL>/` は**社内向けの紹介ページ**（使い方の入口・[docker/landing/index.html](docker/landing/index.html) をイメージに焼き込み）。アップロードは `/upload`、共有ページは `/<id>/`、**自分の共有の一覧・削除は `/mypage`**。いずれも IAP 配下で社内限定。
+
+`/mypage` は IAP 認証ユーザー本人が Web からアップロードしたページ（`metadata.uploader` が一致するもの）だけを一覧表示し、本人分のみ削除できる。削除時は対象オブジェクトの `uploader` と IAP メールを再照合するため、他人のページは消せない。
 
 ### Web（非エンジニア向け・単一 HTML）
 
@@ -138,7 +140,7 @@ terraform output share_env_hint
 - **公開事故防止**: content バケットは `uniform_bucket_level_access` + `public_access_prevention=enforced`。GCS 直読みパスは無く、必ず IAP 越し Cloud Run 経由。
 - **コスト**: Cloud Run は scale-to-zero。アクセスが無ければほぼ課金されない。
 - **gcsfuse**: `mount_options` の `implicit-dirs` でプレースホルダ無しの `<id>/index.html` でも `<id>/` を辿れる。`stat-cache-ttl=5s` / `type-cache-ttl=5s`（既定 60s）で書込直後の一時 404 窓を短縮。軽量 HTML 用途向け（大容量/高頻度には不向き）。
-- **権限非対称**: ランタイム SA は当該バケットに `objectViewer`(配信) + `objectCreator`(新規作成のみ)。Web からは上書き/削除不可。削除は CLI(`unshare.sh`)の管理者操作のみ。
+- **権限非対称**: ランタイム SA は当該バケットに `objectViewer`(配信) + `objectCreator`(新規作成) + 削除専用 custom role `shareObjectDeleter`（`storage.objects.delete` のみ）。上書きは不可（作成は `DoesNotExist` 条件）。削除は **`/mypage` で本人分のみ可**（アプリが IAP メールと `metadata.uploader` を照合）+ CLI(`unshare.sh`) で管理者が任意。SA は delete 権限を持つため、本人性チェックはアプリ([uploader/main.go](uploader/main.go) `handleDelete`)が担保する。
 - **ページ寿命**: 無期限保持・毎回新規 ID（上書きしない）。自動失効は未設定。
 - **state バケット保護**: `prevent_destroy=true`。`terraform destroy` で巻き込まれない。
 
