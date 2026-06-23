@@ -1,9 +1,14 @@
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
 locals {
   required_apis = [
     "run.googleapis.com",
     "iap.googleapis.com",
     "storage.googleapis.com",
     "artifactregistry.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
   ]
 }
 
@@ -76,6 +81,24 @@ resource "google_storage_bucket_iam_member" "runtime_object_creator" {
   bucket = google_storage_bucket.content.name
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+# Cloud Run SA が Artifact Registry からイメージを pull するための権限
+resource "google_artifact_registry_repository_iam_member" "runtime_reader" {
+  project    = var.project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.nginx.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+# Cloud Run サービスエージェントが Artifact Registry からイメージを pull するための権限
+resource "google_artifact_registry_repository_iam_member" "cloudrun_agent_reader" {
+  project    = var.project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.nginx.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:service-${data.google_project.project.number}@serverless-robot-prod.iam.gserviceaccount.com"
 }
 
 # ---------- Cloud Run サービス（nginx + GCS volume mount）----------

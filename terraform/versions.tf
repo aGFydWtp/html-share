@@ -15,7 +15,7 @@ terraform {
 
   # リモート state（二段階ブートストラップ済み）
   backend "gcs" {
-    bucket = "html-share-prod-tfstate"
+    bucket = "html-share-500302-tfstate"
     prefix = "html-share"
   }
 }
