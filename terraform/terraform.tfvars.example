@@ -1,8 +1,13 @@
-project_id          = "html-share-prod"
-region              = "asia-northeast1"
-iap_domain          = "example.com"
-content_bucket_name = "html-share-prod-content"
-tfstate_bucket_name = "html-share-prod-tfstate"
-image               = "asia-northeast1-docker.pkg.dev/html-share-prod/html-share/nginx:1"
-uploader_image      = "asia-northeast1-docker.pkg.dev/html-share-prod/html-share/uploader:1"
-service_name        = "share"
+# 各組織の値に置換してから terraform.tfvars にコピーして使う。
+# cp terraform.tfvars.example terraform.tfvars
+#
+# <...> はプレースホルダ。右側コメントは表記の参考例。
+
+project_id          = "<PROJECT_ID>"                                          # 例: html-share-prod（手動作成済みの専用プロジェクト）
+region              = "asia-northeast1"                                       # 例: asia-northeast1（東京）
+iap_domain          = "<WORKSPACE_DOMAIN>"                                    # 例: example.com（IAP で一括許可する Google Workspace ドメイン）
+content_bucket_name = "<PROJECT_ID>-content"                                  # グローバル一意。例: html-share-prod-content
+tfstate_bucket_name = "<PROJECT_ID>-tfstate"                                  # グローバル一意・versions.tf の backend と一致。例: html-share-prod-tfstate
+image               = "<REGION>-docker.pkg.dev/<PROJECT_ID>/html-share/nginx:1"    # 例: asia-northeast1-docker.pkg.dev/html-share-prod/html-share/nginx:1
+uploader_image      = "<REGION>-docker.pkg.dev/<PROJECT_ID>/html-share/uploader:1" # 例: asia-northeast1-docker.pkg.dev/html-share-prod/html-share/uploader:1
+service_name        = "share"                                                # Cloud Run サービス名（URL の prefix になる）

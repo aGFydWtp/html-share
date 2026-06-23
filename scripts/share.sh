@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # HTML(単一ファイル or ディレクトリ)を GCS に上げ、ランダム ID の共有 URL を発行する。
 #
-#   SHARE_BUCKET=html-share-prod-content \
-#   SHARE_BASE_URL=https://share-xxxx.a.run.app \
+#   SHARE_BUCKET=<PROJECT_ID>-content \
+#   SHARE_BASE_URL=https://<SERVICE_URL> \
 #   scripts/share.sh ./report.html
 #
 # (env は `terraform output share_env_hint` の出力をそのまま使える)
 set -euo pipefail
 
-: "${SHARE_BUCKET:?set SHARE_BUCKET (例: html-share-prod-content)}"
-: "${SHARE_BASE_URL:?set SHARE_BASE_URL (例: https://share-xxxx.a.run.app)}"
+: "${SHARE_BUCKET:?set SHARE_BUCKET (例: <PROJECT_ID>-content)}"
+: "${SHARE_BASE_URL:?set SHARE_BASE_URL (例: https://<SERVICE_URL>)}"
 
 src="${1:-}"
 if [[ -z "$src" ]]; then

@@ -14,8 +14,10 @@ terraform {
   }
 
   # リモート state（二段階ブートストラップ済み）
+  # backend は var. を参照できないため、bucket は手で書き換える（tfstate_bucket_name と一致させる）。
+  # 初回は backend ブロックを丸ごとコメントアウトして local state で apply し、state バケット作成後に有効化する。
   backend "gcs" {
-    bucket = "html-share-prod-tfstate"
+    bucket = "<PROJECT_ID>-tfstate" # 例: html-share-prod-tfstate
     prefix = "html-share"
   }
 }

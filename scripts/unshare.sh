@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 共有ページを ID 単位で削除する。
-#   SHARE_BUCKET=html-share-prod-content scripts/unshare.sh <id>
+#   SHARE_BUCKET=<PROJECT_ID>-content scripts/unshare.sh <id>
 set -euo pipefail
 
 : "${SHARE_BUCKET:?set SHARE_BUCKET}"
