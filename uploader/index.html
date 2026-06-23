@@ -4,79 +4,82 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>html-share アップロード</title>
+<title>upload — html-share</title>
 <style>
-  :root { color-scheme: light dark; }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-    background: #f5f6f8; color: #1a1a1a; padding: 24px;
+  :root{
+    color-scheme:light;
+    --bg:#f6f6f3; --panel:#fff; --ink:#1b1b18; --muted:#70706a; --line:#e4e4de;
+    --accent:#38618c; --accent-soft:#eef2f7; --danger:#a23b3b; --ok:#3a6b4a;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,system-ui,"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    --radius:8px;
   }
-  @media (prefers-color-scheme: dark) {
-    body { background: #15171a; color: #e8e8e8; }
-  }
-  .card {
-    width: 100%; max-width: 520px; background: #fff; border-radius: 14px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.06); padding: 32px;
-  }
-  @media (prefers-color-scheme: dark) { .card { background: #1f2227; box-shadow: none; border: 1px solid #2c3138; } }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { font-size: 13px; color: #6b7280; margin: 0 0 24px; }
-  #drop {
-    border: 2px dashed #c4c9d2; border-radius: 12px; padding: 40px 20px; text-align: center;
-    cursor: pointer; transition: border-color .15s, background .15s;
-  }
-  #drop:hover, #drop.over { border-color: #3b82f6; background: rgba(59,130,246,.06); }
-  #drop .icon { font-size: 36px; line-height: 1; }
-  #drop .hint { font-size: 14px; margin-top: 12px; }
-  #drop .note { font-size: 12px; color: #9ca3af; margin-top: 6px; }
-  #file { display: none; }
-  .bar { height: 6px; border-radius: 3px; background: #e5e7eb; overflow: hidden; margin-top: 20px; display: none; }
-  .bar > span { display: block; height: 100%; width: 0; background: #3b82f6; transition: width .15s; }
-  .result, .error { margin-top: 20px; display: none; }
-  .result { padding: 16px; border-radius: 10px; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); }
-  .result a { word-break: break-all; color: #2563eb; font-weight: 600; text-decoration: none; }
-  .result .row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
-  .error { padding: 14px 16px; border-radius: 10px; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); font-size: 14px; color: #dc2626; }
-  button {
-    font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #d1d5db;
-    background: #fff; cursor: pointer; white-space: nowrap;
-  }
-  button:hover { background: #f3f4f6; }
-  @media (prefers-color-scheme: dark) { button { background: #2a2f37; border-color: #3a414a; color: #e8e8e8; } button:hover { background: #333a43; } }
-  .filename { font-size: 13px; color: #6b7280; margin-top: 14px; min-height: 18px; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .brand{font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;letter-spacing:-.2px;font-family:var(--mono)}
+  .brand::before{content:"$ ";color:var(--muted)}
+  .nav{display:flex;gap:18px;font-family:var(--mono);font-size:13px}
+  .nav a{color:var(--muted);text-decoration:none}
+  .nav a:hover{color:var(--accent)}
+  main{max-width:560px;margin:0 auto;padding:48px 20px}
+  h1{font-size:21px;font-weight:650;margin:0 0 6px;letter-spacing:-.3px}
+  .sub{font-size:13.5px;color:var(--muted);margin:0 0 24px}
+  #drop{border:1.5px dashed var(--line);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;background:var(--panel);transition:border-color .15s,background .15s}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop svg{width:28px;height:28px;color:var(--muted)}
+  #drop .hint{font-size:14px;margin-top:12px}
+  #drop .note{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:6px}
+  #file{display:none}
+  .filename{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:12px;min-height:18px}
+  .bar2{height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:18px;display:none}
+  .bar2>span{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+  .result,.error{margin-top:20px;display:none}
+  .result{padding:16px;border-radius:var(--radius);border:1px solid var(--line);background:var(--panel)}
+  .result .ttl{font-size:13px;font-weight:600;color:var(--ok)}
+  .result a{display:block;word-break:break-all;font-family:var(--mono);font-size:13px;color:var(--accent);text-decoration:none;margin-top:10px}
+  .result .row{display:flex;gap:8px;align-items:center;margin-top:14px}
+  .result .note{font-size:12px;color:var(--muted);margin-top:12px}
+  .error{padding:13px 16px;border-radius:var(--radius);border:1px solid #e6cfcf;background:#fbf4f4;font-size:13.5px;color:var(--danger)}
+  button{font:inherit;font-size:13px;padding:7px 13px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;white-space:nowrap}
+  button:hover{background:var(--accent-soft)}
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.primary:hover{opacity:.88;background:var(--ink)}
 </style>
 </head>
 <body>
-  <div class="card">
+  <header class="bar">
+    <a class="brand" href="/">html-share</a>
+    <nav class="nav"><a href="/upload">upload</a><a href="/mypage">mypage</a></nav>
+  </header>
+
+  <main>
     <h1>HTML を共有</h1>
     <p class="sub">単一の HTML ファイルをアップロードすると、社内限定の共有 URL が発行されます。</p>
 
     <div id="drop" tabindex="0" role="button" aria-label="ファイルを選択またはドロップ">
-      <div class="icon">📄</div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4 7 9M12 4l5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
       <div class="hint"><strong>クリック</strong>して選択、または<strong>ドラッグ＆ドロップ</strong></div>
-      <div class="note">.html / .htm のみ・25MB まで</div>
+      <div class="note">.html / .htm · 25MB まで</div>
     </div>
     <input type="file" id="file" accept=".html,.htm">
     <div class="filename" id="filename"></div>
 
-    <div class="bar" id="bar"><span id="barfill"></span></div>
+    <div class="bar2" id="bar"><span id="barfill"></span></div>
 
     <div class="result" id="result">
-      <div>✅ アップロード完了</div>
+      <div class="ttl">アップロード完了</div>
+      <a id="url" href="#" target="_blank" rel="noopener"></a>
       <div class="row">
-        <a id="url" href="#" target="_blank" rel="noopener"></a>
-      </div>
-      <div class="row">
-        <button id="copy">URL をコピー</button>
+        <button id="copy" class="primary">URL をコピー</button>
         <button id="again">続けてアップロード</button>
       </div>
-      <div class="note" style="margin-top:10px">反映まで数秒かかる場合があります。404 のときは少し待って再読み込みしてください。</div>
+      <div class="note">反映まで数秒かかる場合があります。404 のときは少し待って再読み込みしてください。</div>
     </div>
 
     <div class="error" id="error"></div>
-  </div>
+  </main>
 
 <script>
 (function () {
@@ -99,7 +102,7 @@
   }
   function showError(msg) {
     reset();
-    errEl.textContent = '⚠️ ' + msg;
+    errEl.textContent = msg;
     errEl.style.display = 'block';
   }
 
@@ -158,7 +161,7 @@
   copyBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(urlEl.textContent);
-      copyBtn.textContent = 'コピーしました ✓';
+      copyBtn.textContent = 'コピーしました';
       setTimeout(() => (copyBtn.textContent = 'URL をコピー'), 1500);
     } catch (_) {
       showError('クリップボードへのコピーに失敗しました。URL を手動で選択してください。');

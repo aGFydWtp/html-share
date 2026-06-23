@@ -345,40 +345,54 @@ const mypageHTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>マイページ — html-share</title>
+<meta name="robots" content="noindex">
+<title>mypage — html-share</title>
 <style>
-  :root { color-scheme: light dark; }
-  * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif; margin:0; min-height:100vh;
-         background:#0f1115; color:#e6e8eb; padding:2.5rem 1rem; }
-  .wrap { max-width:760px; margin:0 auto; }
-  h1 { font-size:1.5rem; margin:0 0 .3rem;
-       background:linear-gradient(135deg,#6ea8fe,#a78bfa); -webkit-background-clip:text;
-       background-clip:text; color:transparent; display:inline-block; }
-  .sub { color:#9aa0a6; font-size:.9rem; margin:0 0 1.6rem; }
-  .sub a { color:#6ea8fe; text-decoration:none; }
-  .item { display:flex; align-items:center; gap:1rem; background:#171a21; border:1px solid #242833;
-          border-radius:.6rem; padding:.9rem 1.1rem; margin-bottom:.7rem; }
-  .meta { flex:1; min-width:0; }
-  .meta a { color:#e6e8eb; font-weight:600; text-decoration:none; word-break:break-all; }
-  .meta a:hover { color:#6ea8fe; }
-  .meta .when { display:block; color:#9aa0a6; font-size:.8rem; margin-top:.2rem; }
-  .del { background:#2a1417; color:#ff8a8a; border:1px solid #5a2730; border-radius:.45rem;
-         padding:.45rem .9rem; font-size:.85rem; cursor:pointer; white-space:nowrap; }
-  .del:hover { background:#3a1a1e; }
-  .empty { color:#9aa0a6; background:#171a21; border:1px solid #242833; border-radius:.6rem;
-           padding:2rem; text-align:center; }
+  :root{
+    color-scheme:light;
+    --bg:#f6f6f3; --panel:#fff; --ink:#1b1b18; --muted:#70706a; --line:#e4e4de;
+    --accent:#38618c; --accent-soft:#eef2f7; --danger:#a23b3b;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,system-ui,"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    --radius:8px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .brand{font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;letter-spacing:-.2px;font-family:var(--mono)}
+  .brand::before{content:"$ ";color:var(--muted)}
+  .nav{display:flex;gap:18px;font-family:var(--mono);font-size:13px}
+  .nav a{color:var(--muted);text-decoration:none}
+  .nav a:hover{color:var(--accent)}
+  main{max-width:760px;margin:0 auto;padding:48px 20px}
+  h1{font-size:21px;font-weight:650;margin:0 0 6px;letter-spacing:-.3px}
+  .sub{font-size:13.5px;color:var(--muted);margin:0 0 24px}
+  .sub .who{font-family:var(--mono)}
+  .item{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 16px;margin-bottom:8px}
+  .meta{flex:1;min-width:0}
+  .meta .name{color:var(--ink);font-weight:600;text-decoration:none;word-break:break-all}
+  .meta .name:hover{color:var(--accent)}
+  .meta .when{display:block;color:var(--muted);font-family:var(--mono);font-size:12px;margin-top:3px;word-break:break-all}
+  .del{background:transparent;color:var(--danger);border:1px solid #e6cfcf;border-radius:6px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+  .del:hover{background:#fbf0f0}
+  .empty{color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:var(--radius);padding:40px;text-align:center;font-size:14px}
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>マイページ</h1>
-    <p class="sub">{{.Email}} がアップロードした共有ページ · <a href="/upload">新規アップロード →</a></p>
+  <header class="bar">
+    <a class="brand" href="/">html-share</a>
+    <nav class="nav"><a href="/upload">upload</a><a href="/mypage">mypage</a></nav>
+  </header>
+
+  <main>
+    <h1>自分の共有</h1>
+    <p class="sub"><span class="who">{{.Email}}</span> がアップロードしたページ · <a href="/upload">新規アップロード</a></p>
     {{if .Items}}
       {{range .Items}}
       <div class="item">
         <div class="meta">
-          <a href="{{.URL}}" target="_blank" rel="noopener">{{if .OrigName}}{{.OrigName}}{{else}}{{.ID}}{{end}}</a>
+          <a class="name" href="{{.URL}}" target="_blank" rel="noopener">{{if .OrigName}}{{.OrigName}}{{else}}{{.ID}}{{end}}</a>
           <span class="when">{{.URL}} · {{.UploadedAt}}</span>
         </div>
         <form method="post" action="/mypage/delete" onsubmit="return confirm('このページを削除します。元に戻せません。よろしいですか？')">
@@ -388,9 +402,9 @@ const mypageHTML = `<!doctype html>
       </div>
       {{end}}
     {{else}}
-      <div class="empty">まだ共有ページがありません。<a href="/upload" style="color:#6ea8fe">アップロード</a>してみましょう。</div>
+      <div class="empty">まだ共有ページがありません。<a href="/upload">アップロード</a>してみましょう。</div>
     {{end}}
-  </div>
+  </main>
 </body>
 </html>
 `
