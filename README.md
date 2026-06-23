@@ -29,6 +29,8 @@
 
 ## 日常の使い方
 
+トップ `https://<SERVICE_URL>/` は**社内向けの紹介ページ**（使い方の入口・[docker/landing/index.html](docker/landing/index.html) をイメージに焼き込み）。アップロードは `/upload`、共有ページは `/<id>/`。いずれも IAP 配下で社内限定。
+
 ### Web（非エンジニア向け・単一 HTML）
 
 ブラウザで **`https://share-tqrt3ximjq-an.a.run.app/upload`** を開く（@example.com でログイン）。
@@ -65,6 +67,10 @@ scripts/unshare.sh <id>               # 削除
   → `docker build --platform linux/amd64 ...`
 - **docker push の資格情報ヘルパー**: Homebrew 版 gcloud の `docker-credential-gcloud` が PATH 外のことがある。push 前に通す。
   → `export PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"`
+- **state バケット名は `versions.tf` に直書き（別環境では要書き換え）**: [`terraform/versions.tf`](terraform/versions.tf) の
+  `backend "gcs" { bucket = "..." }` だけは Terraform 仕様で `var.` を参照できず、`terraform.tfvars` の
+  `tfstate_bucket_name` とは別に**ハードコードを手で直す必要がある**（両者は同じ値に揃える）。別プロジェクトに
+  作り直すときはここの書き換え漏れに注意（init 時に既存環境の state を見に行ってしまう）。下のステップ3も参照。
 
 ## ゼロから再構築する手順（DR / 別環境向け）
 
@@ -113,6 +119,7 @@ docker build --platform linux/amd64 -t "$REPO/uploader:1" uploader/   && docker 
 ### 3. state を GCS へ移送（二段階 migrate）
 
 `terraform/versions.tf` の `backend "gcs"` を有効化し `bucket` を `tfstate_bucket_name` に合わせる。
+（backend ブロックは `var.` 参照不可なので**直書きを手で書き換える**。上の「ハマりどころ」参照。）
 
 ```bash
 cd terraform

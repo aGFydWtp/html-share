@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>html-share — 社内 HTML シェア</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif; margin:0; min-height:100vh;
+         display:grid; place-items:center; background:#0f1115; color:#e6e8eb; padding:2rem 1rem; }
+  .wrap { width:100%; max-width:640px; }
+  .brand { font-size:2.6rem; font-weight:800; letter-spacing:-1.5px; line-height:1;
+           background:linear-gradient(135deg,#6ea8fe,#a78bfa); -webkit-background-clip:text;
+           background-clip:text; color:transparent; }
+  .lead { color:#9aa0a6; line-height:1.7; margin:.8rem 0 2rem; }
+  .cta { display:inline-block; margin-bottom:2.4rem; padding:.8rem 1.6rem; border-radius:.6rem;
+         font-weight:700; text-decoration:none; color:#0f1115;
+         background:linear-gradient(135deg,#6ea8fe,#a78bfa); }
+  .cards { display:grid; gap:1rem; grid-template-columns:1fr 1fr; }
+  @media (max-width:520px){ .cards { grid-template-columns:1fr; } }
+  .card { background:#171a21; border:1px solid #242833; border-radius:.7rem; padding:1.2rem 1.3rem; }
+  .card h2 { font-size:1rem; margin:0 0 .5rem; }
+  .card p { color:#9aa0a6; font-size:.9rem; line-height:1.65; margin:0; }
+  .card code { background:#0f1115; padding:.1rem .4rem; border-radius:.3rem; font-size:.85em; }
+  .notes { margin:2rem 0 0; padding:0; list-style:none; color:#9aa0a6; font-size:.86rem; line-height:1.8; }
+  .notes li::before { content:"·"; color:#6ea8fe; font-weight:800; margin-right:.5rem; }
+  footer { margin-top:2.4rem; color:#5f6672; font-size:.8rem; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">html-share</div>
+    <p class="lead">
+      作った HTML を、社内限定の URL でさっと共有するための基盤です。<br>
+      閲覧も共有も @ドメインの Google アカウントでログインした社内メンバーだけ。社外からは到達できません。
+    </p>
+    <a class="cta" href="/upload">HTML をアップロードする →</a>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Web でアップロード</h2>
+        <p><a href="/upload" style="color:#6ea8fe">/upload</a> に単一 HTML をドラッグ＆ドロップ。共有 URL がその場で発行されます（25MB まで）。</p>
+      </div>
+      <div class="card">
+        <h2>CLI でアップロード</h2>
+        <p>ディレクトリ一式や自動化なら <code>scripts/share.sh</code>。アセット付きの複数ファイルも丸ごと共有できます。</p>
+      </div>
+    </div>
+
+    <ul class="notes">
+      <li>発行された URL は社内（IAP 認証済み）限定。社外には公開されません。</li>
+      <li>アップロードは誰でも可。上書き・削除は不可で、毎回あたらしい URL が発行されます。</li>
+      <li>削除が必要なときは管理者の <code>unshare.sh</code> 操作で行います。</li>
+    </ul>
+
+    <footer>社内向け · 詳しい使い方はリポジトリの README を参照してください。</footer>
+  </div>
+</body>
+</html>
